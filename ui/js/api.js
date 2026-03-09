@@ -39,6 +39,10 @@ const LastAPI = {
     return this.post({ action: 'set-public', public: pub });
   },
 
+  setWebhookPassword(password) {
+    return this.post({ action: 'set-webhook-password', password });
+  },
+
   react(target, sid, type, text) {
     return this.post({ action: 'react', target, sid, type, text: text || '' });
   },

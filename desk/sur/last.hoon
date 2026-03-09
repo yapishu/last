@@ -33,8 +33,19 @@
       public=?
   ==
 ::
++$  state-1
+  $:  %1
+      scrobbles=(map sid scrobble)
+      order=(list sid)
+      peers=(map @p (map sid scrobble))
+      reactions=(map sid (list reaction))
+      public=?
+      webhook-password=@t
+  ==
+::
 +$  versioned-state
   $%  state-0
+      state-1
   ==
 ::
 ::  poke actions
@@ -44,6 +55,7 @@
       [%scrobble =sid =scrobble]
       [%delete =sid]
       [%set-public public=?]
+      [%set-webhook-password password=@t]
       ::  social: owner-initiated
       [%react target=@p =sid type=?(%like %comment) text=@t]
       ::  social: remote-initiated

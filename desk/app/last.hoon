@@ -7,7 +7,7 @@
 --
 ::
 %-  agent:dbug
-=|  state-0:last
+=|  state-1:last
 =*  state  -
 ^-  agent:gall
 =<
@@ -18,6 +18,7 @@
 ++  on-init
   ^-  (quip card _this)
   =.  public  %.y
+  =.  webhook-password  ''
   :_  this
   :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
   ==
@@ -30,12 +31,18 @@
   =/  old  (mule |.(!<(versioned-state:last old-state)))
   ?:  ?=(%| -.old)
     =.  public  %.y
+    =.  webhook-password  ''
     :_  this
     :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
     ==
   ?-  -.p.old
-      %0
+      %1
     :_  this(state p.old)
+    :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
+    ==
+  ::
+      %0
+    :_  this(state [%1 scrobbles.p.old order.p.old peers.p.old reactions.p.old public.p.old ''])
     :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
     ==
   ==
@@ -47,6 +54,12 @@
   ?+  mark  (on-poke:def mark vase)
       %last-action
     (handle-action !<(action:last vase))
+  ::
+      %json
+    =/  jon=json  !<(json vase)
+    =/  act=(unit action:last)  (parse-json-action jon)
+    ?~  act  `this
+    (handle-action u.act)
   ::
       %handle-http-request
     =+  !<([eyre-id=@ta req=inbound-request:eyre] vase)
@@ -78,6 +91,10 @@
         %set-public
       ?>  =(src.bowl our.bowl)
       `this(public public.act)
+    ::
+        %set-webhook-password
+      ?>  =(src.bowl our.bowl)
+      `this(webhook-password password.act)
     ::
         %react
       ?>  =(src.bowl our.bowl)
@@ -188,6 +205,7 @@
       %-  pairs:enjs:format
       :~  ['ship' s+(scot %p our.bowl)]
           ['public' b+public]
+          ['webhook-password' s+webhook-password]
       ==
     ::
         [%s3-config ~]
@@ -248,7 +266,7 @@
       :_  this
       (give-http eyre-id 405 ~[['content-type' 'text/plain']] (some (as-octs:mimes:html 'method not allowed')))
     ?.  ?|  authenticated.req
-            (check-basic-auth header-list.request.req bowl)
+            (check-basic-auth header-list.request.req bowl webhook-password)
         ==
       :_  this
       (give-http eyre-id 401 ~[['www-authenticate' 'Basic realm="last"']] (some (as-octs:mimes:html 'unauthorized')))
@@ -399,6 +417,9 @@
     ::
         %'set-public'
       [%set-public ((ot ~[public+bo]) jon)]
+    ::
+        %'set-webhook-password'
+      [%set-webhook-password ((ot ~[password+so]) jon)]
     ::
         %'react'
       =/  f  (ot ~[target+(se %p) sid+(se %uv) type+so text+so])
@@ -645,7 +666,7 @@
   |=(s=@p (lth `@`s (bex 32)))
 ::
 ++  check-basic-auth
-  |=  [headers=(list [key=@t value=@t]) =bowl:gall]
+  |=  [headers=(list [key=@t value=@t]) =bowl:gall custom-pass=@t]
   ^-  ?
   =/  auth-header=(unit @t)
     =/  hdrs=(list [key=@t value=@t])  headers
@@ -664,6 +685,8 @@
   =/  colon=(unit @ud)  (find ":" cred)
   ?~  colon  %.n
   =/  pass=tape  (slag +(u.colon) cred)
+  ?:  !=('' custom-pass)
+    =(pass (trip custom-pass))
   =/  code=@p
     .^(@p %j /(scot %p our.bowl)/code/(scot %da now.bowl)/(scot %p our.bowl))
   =/  code-text=tape  (trip (scot %p code))

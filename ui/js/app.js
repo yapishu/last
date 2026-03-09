@@ -275,6 +275,8 @@ const App = {
 
   renderSettings() {
     const pub = this.settings?.public ?? true;
+    const whPass = this.settings?.['webhook-password'] || '';
+    const webhookUrl = `${location.origin}/apps/last/api/webhook`;
     return `
       <div class="settings-section">
         <h3 class="section-title">Settings</h3>
@@ -287,9 +289,15 @@ const App = {
         <p class="setting-hint">When on, mutual pals can subscribe to your scrobbles.</p>
         <div class="setting-row">
           <label>Webhook endpoint</label>
-          <code class="webhook-url">/apps/last/api/webhook</code>
+          <code class="webhook-url">${esc(webhookUrl)}</code>
         </div>
-        <p class="setting-hint">POST {verb, name, image} to scrobble from external services.</p>
+        <p class="setting-hint">POST {verb, name, image} to scrobble from external services. Uses HTTP Basic Auth.</p>
+        <div class="setting-row">
+          <label>Webhook password</label>
+          <input type="text" id="wh-password" class="input" placeholder="leave blank for +code" value="${esc(whPass)}" style="flex:1;max-width:200px" />
+          <button class="btn" id="save-wh-password">save</button>
+        </div>
+        <p class="setting-hint">Username: anything. Password: ${whPass ? 'custom password' : 'your +code (default)'}.</p>
       </div>
     `;
   },
@@ -428,6 +436,18 @@ const App = {
         try {
           await LastAPI.setPublic(newVal);
           this.settings.public = newVal;
+          this.render();
+        } catch (e) { console.error(e); }
+      };
+    }
+    // save webhook password
+    const saveWh = document.getElementById('save-wh-password');
+    if (saveWh) {
+      saveWh.onclick = async () => {
+        const pass = document.getElementById('wh-password').value.trim();
+        try {
+          await LastAPI.setWebhookPassword(pass);
+          this.settings['webhook-password'] = pass;
           this.render();
         } catch (e) { console.error(e); }
       };
