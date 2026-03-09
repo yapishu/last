@@ -4,6 +4,8 @@
 
 A universal social scrobbler for Urbit. Record what you're listening to, watching, playing, or reading — and see what your pals are up to.
 
+<img width="638" height="342" alt="image" src="https://github.com/user-attachments/assets/04945408-bf9e-4ec9-be0a-ce977106730c" />
+
 ## Features
 
 - **Universal scrobbles** — not just music: any verb/name pair (listening, watching, playing, reading, etc.)
