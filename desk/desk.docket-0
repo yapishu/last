@@ -3,7 +3,7 @@
   info+'Universal scrobbler'
   color+0x1a.1a18
   base+'last'
-  glob-http+['https://pub-5eef062339ec4a0a8839cb95ec1a98a6.r2.dev/glob-0v6.ij2jm.6739m.761vq.usk95.2h992.glob' 0v6.ij2jm.6739m.761vq.usk95.2h992]
+  glob-http+['https://pub-5eef062339ec4a0a8839cb95ec1a98a6.r2.dev/glob-0vbl1vv.f2d6p.dvh1p.1l6e3.vgoth.glob' 0vbl1vv.f2d6p.dvh1p.1l6e3.vgoth]
   version+[0 1 0]
   image+'https://pub-5eef062339ec4a0a8839cb95ec1a98a6.r2.dev/last.png'
   website+'https://github.com/yapishu/last'

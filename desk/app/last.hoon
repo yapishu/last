@@ -59,11 +59,12 @@
     ?-  -.act
         %scrobble
       ?>  =(src.bowl our.bowl)
+      =/  new-sid=sid:last  `@uv`eny.bowl
       =/  sc=scrobble:last  scrobble.act(when now.bowl)
-      =.  scrobbles  (~(put by scrobbles) sid.act sc)
-      =.  order  [sid.act order]
+      =.  scrobbles  (~(put by scrobbles) new-sid sc)
+      =.  order  [new-sid order]
       :_  this
-      :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-scrobble sid.act sc])]
+      :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-scrobble new-sid sc])]
       ==
     ::
         %delete
@@ -384,15 +385,14 @@
         %'scrobble'
       =/  f
         %-  ot
-        :~  sid+(se %uv)
-            verb+so
+        :~  verb+so
             name+so
             image+so
             source+so
         ==
-      =/  [s=@uv verb=@t name=@t image=@t source=@t]
+      =/  [verb=@t name=@t image=@t source=@t]
         (f jon)
-      [%scrobble s [verb name image source *@da]]
+      [%scrobble *@uv [verb name image source *@da]]
     ::
         %'delete'
       [%delete ((ot ~[sid+(se %uv)]) jon)]

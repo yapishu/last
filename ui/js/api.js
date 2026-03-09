@@ -26,10 +26,8 @@ const LastAPI = {
   getS3Config() { return this.get('s3-config'); },
 
   scrobble(verb, name, image, source) {
-    const sid = '0v' + Math.random().toString(36).slice(2, 10) + '.' +
-                Math.random().toString(36).slice(2, 7);
     return this.post({
-      action: 'scrobble', sid, verb, name, image: image || '', source: source || 'manual',
+      action: 'scrobble', verb, name, image: image || '', source: source || 'manual',
     });
   },
 
