@@ -25,9 +25,10 @@ const LastAPI = {
   getSettings() { return this.get('settings'); },
   getS3Config() { return this.get('s3-config'); },
 
-  scrobble(verb, name, image, source) {
+  scrobble(verb, name, image, source, meta) {
     return this.post({
       action: 'scrobble', verb, name, image: image || '', source: source || 'manual',
+      meta: meta || {},
     });
   },
 
@@ -45,6 +46,14 @@ const LastAPI = {
 
   react(target, sid, type, text) {
     return this.post({ action: 'react', target, sid, type, text: text || '' });
+  },
+
+  deleteReact(sid, index) {
+    return this.post({ action: 'delete-react', sid, index });
+  },
+
+  editReact(sid, index, text) {
+    return this.post({ action: 'edit-react', sid, index, text });
   },
 };
 

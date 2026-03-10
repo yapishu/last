@@ -7,7 +7,7 @@
 --
 ::
 %-  agent:dbug
-=|  state-1:last
+=|  state-2:last
 =*  state  -
 ^-  agent:gall
 =<
@@ -19,6 +19,7 @@
   ^-  (quip card _this)
   =.  public  %.y
   =.  webhook-password  ''
+  =.  scrobble-meta  ~
   :_  this
   :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
   ==
@@ -32,17 +33,23 @@
   ?:  ?=(%| -.old)
     =.  public  %.y
     =.  webhook-password  ''
+    =.  scrobble-meta  ~
     :_  this
     :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
     ==
   ?-  -.p.old
-      %1
+      %2
     :_  this(state p.old)
     :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
     ==
   ::
+      %1
+    :_  this(state [%2 scrobbles.p.old order.p.old peers.p.old reactions.p.old public.p.old webhook-password.p.old ~])
+    :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
+    ==
+  ::
       %0
-    :_  this(state [%1 scrobbles.p.old order.p.old peers.p.old reactions.p.old public.p.old ''])
+    :_  this(state [%2 scrobbles.p.old order.p.old peers.p.old reactions.p.old public.p.old '' ~])
     :~  [%pass /eyre/connect %arvo %e %connect [~ /apps/last/api] %last]
     ==
   ==
@@ -76,6 +83,7 @@
       =/  sc=scrobble:last  scrobble.act(when now.bowl)
       =.  scrobbles  (~(put by scrobbles) new-sid sc)
       =.  order  [new-sid order]
+      =.  scrobble-meta  (~(put by scrobble-meta) new-sid meta.act)
       :_  this
       :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-scrobble new-sid sc])]
       ==
@@ -84,6 +92,7 @@
       ?>  =(src.bowl our.bowl)
       =.  scrobbles  (~(del by scrobbles) sid.act)
       =.  order  (skip order |=(s=sid:last =(s sid.act)))
+      =.  scrobble-meta  (~(del by scrobble-meta) sid.act)
       :_  this
       :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%del-scrobble sid.act])]
       ==
@@ -101,10 +110,44 @@
       =/  rxn=reaction:last  [our.bowl type.act text.act now.bowl]
       ?:  =(target.act our.bowl)
         =/  existing=(list reaction:last)  (~(gut by reactions) sid.act ~)
+        ::  likes toggle: remove if already liked by this user
+        ?:  =(type.act %like)
+          =/  already=?
+            %+  lien  existing
+            |=(r=reaction:last &(=(from.r our.bowl) =(type.r %like)))
+          ?:  already
+            =/  filtered=(list reaction:last)
+              %+  skip  existing
+              |=(r=reaction:last &(=(from.r our.bowl) =(type.r %like)))
+            =.  reactions  (~(put by reactions) sid.act filtered)
+            `this
+          =.  reactions  (~(put by reactions) sid.act (snoc existing rxn))
+          :_  this
+          :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-react sid.act rxn])]
+          ==
         =.  reactions  (~(put by reactions) sid.act (snoc existing rxn))
         :_  this
         :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-react sid.act rxn])]
         ==
+      ::  remote: store locally + send to friend
+      =/  existing=(list reaction:last)  (~(gut by reactions) sid.act ~)
+      ?:  =(type.act %like)
+        =/  already=?
+          %+  lien  existing
+          |=(r=reaction:last &(=(from.r our.bowl) =(type.r %like)))
+        ?:  already
+          =.  reactions
+            (~(put by reactions) sid.act (skip existing |=(r=reaction:last &(=(from.r our.bowl) =(type.r %like)))))
+          `this
+        =.  reactions  (~(put by reactions) sid.act (snoc existing rxn))
+        :_  this
+        :~  :*  %pass  /react/(scot %p target.act)
+                %agent  [target.act %last]
+                %poke  %last-action
+                !>(`action:last`[%receive-react our.bowl sid.act rxn])
+            ==
+        ==
+      =.  reactions  (~(put by reactions) sid.act (snoc existing rxn))
       :_  this
       :~  :*  %pass  /react/(scot %p target.act)
               %agent  [target.act %last]
@@ -112,6 +155,34 @@
               !>(`action:last`[%receive-react our.bowl sid.act rxn])
           ==
       ==
+    ::
+        %delete-react
+      ?>  =(src.bowl our.bowl)
+      =/  existing=(list reaction:last)  (~(gut by reactions) sid.act ~)
+      =/  idx=@ud  index.act
+      ?.  (lth idx (lent existing))  `this
+      =/  tgt=reaction:last  (snag idx existing)
+      ?.  =(from.tgt our.bowl)  `this
+      =.  reactions  (~(put by reactions) sid.act (oust [idx 1] existing))
+      `this
+    ::
+        %edit-react
+      ?>  =(src.bowl our.bowl)
+      =/  existing=(list reaction:last)  (~(gut by reactions) sid.act ~)
+      =/  idx=@ud  index.act
+      ?.  (lth idx (lent existing))  `this
+      =/  tgt=reaction:last  (snag idx existing)
+      ?.  =(from.tgt our.bowl)  `this
+      =/  updated=(list reaction:last)
+        =/  i=@ud  0
+        =/  acc=(list reaction:last)  ~
+        |-
+        ?~  existing  (flop acc)
+        ?:  =(i idx)
+          $(existing t.existing, i +(i), acc [i.existing(text text.act) acc])
+        $(existing t.existing, i +(i), acc [i.existing acc])
+      =.  reactions  (~(put by reactions) sid.act updated)
+      `this
     ::
         %receive-scrobbles
       =/  pals=(set @p)  (get-peers bowl)
@@ -125,7 +196,27 @@
       =/  rxn=reaction:last  reaction.act(from src.bowl)
       =/  existing=(list reaction:last)  (~(gut by reactions) sid.act ~)
       =.  reactions  (~(put by reactions) sid.act (snoc existing rxn))
-      `this
+      ::  hark notification
+      =/  sc-name=@t
+        =/  sc=(unit scrobble:last)  (~(get by scrobbles) sid.act)
+        ?~  sc  'a scrobble'
+        name.u.sc
+      =/  verb=@t  ?:(=(type.rxn %like) 'liked' 'commented on')
+      =/  hark-cards=(list card)
+        %-  fall  :_  ~
+        %-  mole  |.
+        =/  yarn-id  (end 7 (shas %last-react eny.bowl))
+        =/  msg=@t  (crip "{(trip (scot %p src.bowl))} {(trip verb)} your scrobble: {(trip sc-name)}")
+        =/  con  ~[[%text msg]]
+        =/  rop  [[~ our.bowl %last] [~ %last our.bowl %last] %last /]
+        =/  wer=path  /apps/last
+        :~  [%pass /hark %agent [our.bowl %hark] %poke %hark-action !>([%add-yarn & & yarn-id rop now.bowl con wer ~])]
+        ==
+      :_  this
+      %+  weld  hark-cards
+      ^-  (list card)
+      :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-react sid.act rxn])]
+      ==
     ::
         %webhook
       ?>  =(src.bowl our.bowl)
@@ -133,6 +224,7 @@
       =/  sc=scrobble:last  [verb.act name.act image.act 'webhook' now.bowl]
       =.  scrobbles  (~(put by scrobbles) new-sid sc)
       =.  order  [new-sid order]
+      =.  scrobble-meta  (~(put by scrobble-meta) new-sid ~)
       :_  this
       :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-scrobble new-sid sc])]
       ==
@@ -355,6 +447,7 @@
     =/  sc=scrobble:last  [verb name image 'webhook' now.bowl]
     =.  scrobbles  (~(put by scrobbles) new-sid sc)
     =.  order  [new-sid order]
+    =.  scrobble-meta  (~(put by scrobble-meta) new-sid ~)
     :_  this
     %+  weld
       :~  [%give %fact ~[/scrobbles] %last-update !>(`update:last`[%new-scrobble new-sid sc])]
@@ -410,7 +503,19 @@
         ==
       =/  [verb=@t name=@t image=@t source=@t]
         (f jon)
-      [%scrobble *@uv [verb name image source *@da]]
+      =/  met=(map @t @t)
+        =/  res=(unit json)
+          ?:  ?=([%o *] jon)
+            (~(get by p.jon) 'meta')
+          ~
+        ?~  res  ~
+        ?.  ?=([%o *] u.res)  ~
+        %-  ~(gas by *(map @t @t))
+        %+  murn  ~(tap by p.u.res)
+        |=  [k=@t v=json]
+        ?.  ?=([%s *] v)  ~
+        `[k p.v]
+      [%scrobble *@uv [verb name image source *@da] met]
     ::
         %'delete'
       [%delete ((ot ~[sid+(se %uv)]) jon)]
@@ -430,12 +535,23 @@
           %'comment'  %comment
         ==
       [%react target s rtype text]
+    ::
+        %'delete-react'
+      =/  f  (ot ~[sid+(se %uv) index+ni])
+      =/  [s=@uv idx=@ud]  (f jon)
+      [%delete-react s idx]
+    ::
+        %'edit-react'
+      =/  f  (ot ~[sid+(se %uv) index+ni text+so])
+      =/  [s=@uv idx=@ud text=@t]  (f jon)
+      [%edit-react s idx text]
     ==
   ::
   ++  scrobble-to-json
     |=  [=sid:last sc=scrobble:last]
     ^-  json
     =/  rxns=(list reaction:last)  (~(gut by reactions) sid ~)
+    =/  met=(map @t @t)  (~(gut by scrobble-meta) sid ~)
     %-  pairs:enjs:format
     :~  ['sid' s+(scot %uv sid)]
         ['verb' s+verb.sc]
@@ -443,6 +559,11 @@
         ['image' s+image.sc]
         ['source' s+source.sc]
         ['when' (numb:enjs:format (div (sub when.sc ~1970.1.1) ~s1))]
+        :-  'meta'
+        %-  pairs:enjs:format
+        %+  turn  ~(tap by met)
+        |=  [k=@t v=@t]
+        [k s+v]
         :-  'reactions'
         :-  %a
         %+  turn  rxns
@@ -619,6 +740,9 @@
       ~&  [%last-react-failed (slav %p i.t.wire)]
       `this
     ==
+  ::
+      [%hark ~]
+    `this
   ==
 ::
 ++  on-arvo

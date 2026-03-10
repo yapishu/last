@@ -43,21 +43,35 @@
       webhook-password=@t
   ==
 ::
++$  state-2
+  $:  %2
+      scrobbles=(map sid scrobble)
+      order=(list sid)
+      peers=(map @p (map sid scrobble))
+      reactions=(map sid (list reaction))
+      public=?
+      webhook-password=@t
+      scrobble-meta=(map sid (map @t @t))
+  ==
+::
 +$  versioned-state
   $%  state-0
       state-1
+      state-2
   ==
 ::
 ::  poke actions
 ::
 +$  action
   $%  ::  owner actions
-      [%scrobble =sid =scrobble]
+      [%scrobble =sid =scrobble meta=(map @t @t)]
       [%delete =sid]
       [%set-public public=?]
       [%set-webhook-password password=@t]
       ::  social: owner-initiated
       [%react target=@p =sid type=?(%like %comment) text=@t]
+      [%delete-react =sid index=@ud]
+      [%edit-react =sid index=@ud text=@t]
       ::  social: remote-initiated
       [%receive-scrobbles from=@p items=(list [sid scrobble])]
       [%receive-react from=@p =sid =reaction]

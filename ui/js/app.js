@@ -9,6 +9,7 @@ const App = {
   pals: null,
   settings: null,
   verbFilter: '',
+  sourceFilter: '',
   feedPage: 0,
   friendsPage: 0,
   pageSize: 20,
@@ -16,8 +17,16 @@ const App = {
   async init() {
     const saved = localStorage.getItem('last-page-size');
     if (saved) this.pageSize = parseInt(saved, 10);
+    // read URL params
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab')) this.view = params.get('tab');
+    if (params.get('verb')) this.verbFilter = params.get('verb');
+    if (params.get('source')) this.sourceFilter = params.get('source');
     this.render();
-    await this.loadFeed();
+    if (this.view === 'feed') await this.loadFeed();
+    else if (this.view === 'friends') await this.loadPeers();
+    else if (this.view === 'stats') await this.loadStats();
+    else if (this.view === 'settings') { this.settings = await LastAPI.getSettings(); this.render(); }
   },
 
   async loadFeed() {
@@ -63,7 +72,17 @@ const App = {
     if (v === 'feed' && !this.feed) this.loadFeed();
     if (v === 'friends' && !this.peers) this.loadPeers();
     if (v === 'stats' && !this.stats) this.loadStats();
+    this.updateUrl();
     this.render();
+  },
+
+  updateUrl() {
+    const params = new URLSearchParams();
+    if (this.view !== 'feed') params.set('tab', this.view);
+    if (this.verbFilter) params.set('verb', this.verbFilter);
+    if (this.sourceFilter) params.set('source', this.sourceFilter);
+    const qs = params.toString();
+    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
   },
 
   paginate(items, page) {
@@ -126,7 +145,9 @@ const App = {
 
   renderFeed() {
     if (!this.feed) return '<div class="loading">Loading...</div>';
-    const all = this.feed.scrobbles;
+    let all = this.feed.scrobbles;
+    if (this.sourceFilter) all = all.filter(sc => sc.source === this.sourceFilter);
+    if (this.verbFilter) all = all.filter(sc => sc.verb === this.verbFilter);
     const page = this.paginate(all, this.feedPage);
     return `
       <div class="scrobble-form">
@@ -166,7 +187,9 @@ const App = {
     const time = timeAgo(sc.when * 1000);
     const reactions = sc.reactions || [];
     const likes = reactions.filter(r => r.type === 'like');
-    const comments = reactions.filter(r => r.type === 'comment');
+    const comments = reactions.map((r, i) => ({ ...r, idx: i })).filter(r => r.type === 'comment');
+    const myShip = this.settings?.ship || '';
+    const liked = likes.some(r => r.from === myShip);
     return `
       <div class="scrobble-card" data-sid="${sc.sid}">
         ${sc.image ? `<div class="sc-image"><img src="${esc(sc.image)}" alt="" loading="lazy" /></div>` : ''}
@@ -179,26 +202,38 @@ const App = {
           </div>
           <div class="sc-name">${esc(sc.name)}</div>
           <div class="sc-actions">
-            <button class="sc-like-btn" data-ship="${esc(ship)}" data-sid="${sc.sid}" title="Like">
+            <button class="sc-like-btn ${liked ? 'liked' : ''}" data-ship="${esc(ship)}" data-sid="${sc.sid}" title="Like">
+              ${liked ? '&#9829;' : '&#9825;'}
               ${likes.length > 0 ? `<span class="like-count">${likes.length}</span>` : ''}
-              &#9825;
             </button>
             <button class="sc-comment-btn" data-ship="${esc(ship)}" data-sid="${sc.sid}" title="Comment">
-              ${comments.length > 0 ? `<span class="comment-count">${comments.length}</span>` : ''}
               &#9997;
+              ${comments.length > 0 ? `<span class="comment-count">${comments.length}</span>` : ''}
             </button>
             ${canDelete ? `<button class="sc-delete-btn" data-sid="${sc.sid}" title="Delete">&times;</button>` : ''}
           </div>
           ${comments.length > 0 ? `
             <div class="sc-comments">
-              ${comments.map(c => `
-                <div class="sc-comment">
+              ${comments.map(c => {
+                const mine = c.from === myShip;
+                return `
+                <div class="sc-comment" data-react-idx="${c.idx}">
                   <span class="comment-from">${esc(c.from)}</span>
-                  <span class="comment-text">${esc(c.text)}</span>
-                </div>
-              `).join('')}
+                  <span class="comment-text" data-sid="${sc.sid}" data-idx="${c.idx}">${esc(c.text)}</span>
+                  ${mine ? `
+                    <button class="sc-comment-edit" data-sid="${sc.sid}" data-idx="${c.idx}" title="Edit">&#9998;</button>
+                    <button class="sc-comment-del" data-sid="${sc.sid}" data-idx="${c.idx}" title="Delete">&times;</button>
+                  ` : ''}
+                </div>`;
+              }).join('')}
             </div>
           ` : ''}
+          <div class="sc-comment-form hidden" data-ship="${esc(ship)}" data-sid="${sc.sid}">
+            <div class="comment-input-row">
+              <input type="text" class="input comment-input" placeholder="write a comment..." />
+              <button class="btn btn-small comment-submit">post</button>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -208,8 +243,12 @@ const App = {
     if (!this.peers) return '<div class="loading">Loading...</div>';
     const peerEntries = Object.entries(this.peers.peers || {});
     const allVerbs = new Set();
+    const allSources = new Set();
     for (const [, items] of peerEntries) {
-      for (const sc of items) allVerbs.add(sc.verb);
+      for (const sc of items) {
+        allVerbs.add(sc.verb);
+        if (sc.source) allSources.add(sc.source);
+      }
     }
     let merged = [];
     for (const [ship, items] of peerEntries) {
@@ -220,6 +259,9 @@ const App = {
     if (this.verbFilter) {
       merged = merged.filter(sc => sc.verb === this.verbFilter);
     }
+    if (this.sourceFilter) {
+      merged = merged.filter(sc => sc.source === this.sourceFilter);
+    }
     merged.sort((a, b) => b.when - a.when);
     const page = this.paginate(merged, this.friendsPage);
 
@@ -228,6 +270,10 @@ const App = {
         <select id="verb-filter" class="input filter-select">
           <option value="">all verbs</option>
           ${[...allVerbs].sort().map(v => `<option value="${esc(v)}" ${this.verbFilter === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+        </select>
+        <select id="source-filter" class="input filter-select">
+          <option value="">all sources</option>
+          ${[...allSources].sort().map(s => `<option value="${esc(s)}" ${this.sourceFilter === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
         </select>
         <button class="btn btn-small" id="refresh-peers">refresh</button>
       </div>
@@ -398,16 +444,69 @@ const App = {
         } catch (e) { console.error(e); }
       };
     });
-    // comment
+    // comment - toggle inline form
     document.querySelectorAll('.sc-comment-btn').forEach(btn => {
-      btn.onclick = async () => {
-        const text = prompt('Comment:');
+      btn.onclick = () => {
+        const card = btn.closest('.scrobble-card');
+        const form = card.querySelector('.sc-comment-form');
+        if (!form) return;
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) {
+          form.querySelector('.comment-input').focus();
+        }
+      };
+    });
+    // comment submit
+    document.querySelectorAll('.comment-submit').forEach(btn => {
+      const form = btn.closest('.sc-comment-form');
+      const input = form.querySelector('.comment-input');
+      const submit = async () => {
+        const text = input.value.trim();
         if (!text) return;
+        btn.disabled = true;
         try {
-          await LastAPI.react(btn.dataset.ship, btn.dataset.sid, 'comment', text);
+          await LastAPI.react(form.dataset.ship, form.dataset.sid, 'comment', text);
           if (this.view === 'feed') { this.feed = null; await this.loadFeed(); }
           else { this.peers = null; await this.loadPeers(); }
         } catch (e) { console.error(e); }
+        btn.disabled = false;
+      };
+      btn.onclick = submit;
+      input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+    });
+    // delete comment
+    document.querySelectorAll('.sc-comment-del').forEach(btn => {
+      btn.onclick = async () => {
+        try {
+          await LastAPI.deleteReact(btn.dataset.sid, parseInt(btn.dataset.idx, 10));
+          if (this.view === 'feed') { this.feed = null; await this.loadFeed(); }
+          else { this.peers = null; await this.loadPeers(); }
+        } catch (e) { console.error(e); }
+      };
+    });
+    // edit comment
+    document.querySelectorAll('.sc-comment-edit').forEach(btn => {
+      btn.onclick = () => {
+        const comment = btn.closest('.sc-comment');
+        const textEl = comment.querySelector('.comment-text');
+        const oldText = textEl.textContent;
+        textEl.innerHTML = `<input type="text" class="input comment-edit-input" value="${esc(oldText)}" />`;
+        const inp = textEl.querySelector('.comment-edit-input');
+        inp.focus();
+        const save = async () => {
+          const newText = inp.value.trim();
+          if (!newText || newText === oldText) {
+            textEl.textContent = oldText;
+            return;
+          }
+          try {
+            await LastAPI.editReact(btn.dataset.sid, parseInt(btn.dataset.idx, 10), newText);
+            if (this.view === 'feed') { this.feed = null; await this.loadFeed(); }
+            else { this.peers = null; await this.loadPeers(); }
+          } catch (e) { console.error(e); textEl.textContent = oldText; }
+        };
+        inp.onkeydown = (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') textEl.textContent = oldText; };
+        inp.onblur = save;
       };
     });
     // verb filter
@@ -416,6 +515,17 @@ const App = {
       filter.onchange = () => {
         this.verbFilter = filter.value;
         this.friendsPage = 0;
+        this.updateUrl();
+        this.render();
+      };
+    }
+    // source filter
+    const srcFilter = document.getElementById('source-filter');
+    if (srcFilter) {
+      srcFilter.onchange = () => {
+        this.sourceFilter = srcFilter.value;
+        this.friendsPage = 0;
+        this.updateUrl();
         this.render();
       };
     }

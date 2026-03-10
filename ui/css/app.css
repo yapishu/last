@@ -354,6 +354,10 @@ body {
   color: var(--text);
 }
 
+.sc-like-btn.liked {
+  color: #ef4444;
+}
+
 .sc-delete-btn:hover {
   color: var(--danger) !important;
 }
@@ -372,6 +376,35 @@ body {
 .sc-comment {
   font-size: 0.75rem;
   margin-bottom: 0.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.sc-comment-edit,
+.sc-comment-del {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 0 0.15rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.sc-comment:hover .sc-comment-edit,
+.sc-comment:hover .sc-comment-del {
+  opacity: 1;
+}
+.sc-comment-del:hover { color: var(--danger, #ef4444); }
+.sc-comment-edit:hover { color: var(--accent, #fff); }
+.comment-edit-input {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  width: 100%;
 }
 
 .comment-from {
@@ -383,6 +416,28 @@ body {
 
 .comment-text {
   color: var(--text-secondary);
+}
+
+.sc-comment-form {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.sc-comment-form.hidden {
+  display: none;
+}
+
+.comment-input-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.comment-input {
+  flex: 1;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.5rem;
 }
 
 /* Pagination */
