@@ -4,7 +4,7 @@
 
 A universal social scrobbler for Urbit. Record what you're listening to, watching, playing, or reading, and see what your %pals and %contacts mutuals are doing.
 
-<img width="856" height="436" alt="image" src="https://github.com/user-attachments/assets/17c02ab1-47f6-47d5-b698-26cee0817ce1" />
+<img width="838" height="506" alt="image" src="https://github.com/user-attachments/assets/fb7a8c3d-1cf7-4a94-b850-7dfb84cb9677" />
 
 ## Features
 
